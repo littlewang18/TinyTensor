@@ -2,53 +2,96 @@
 #define TINYTENSOR
 
 #include <memory>
+#include <iostream>
 
 template <typename T>
-class TinyTensor
-{
+class TinyTensor {
 	private:
 		// TinyTensor 长度
-		int length{};
-
-		// TinyTensor 头指针
-		std::unique_ptr <T> hpoint{nullptr};
-
-		// TinyTensor 尾指针
-		std::unique_ptr <T> tpoint{nullptr};
+		size_t size{};
+		// TinyTensor 内存管理
+		std::unique_ptr <T[]> data{nullptr};
 
 	public:
 		// 构造函数
-		TinyTensor(int length);
+		TinyTensor(size_t size=0) : size{size} {
+			if(size > 0) {
+				data.reset(new T[size]{});
+			}
+        }
 
 		// 复制构造函数（禁用）
 		TinyTensor(const TinyTensor& tensor1) = delete;
 		
 		// 复制赋值函数（禁用）
-		TinyTensor& operator=(const TinyTensor& tensor1) = delete
+		TinyTensor& operator=(const TinyTensor& tensor1) = delete;
 
 		// 移动构造函数
-		TinyTensor(const TinyTensor&& tensor1) noexcept;
+		TinyTensor(TinyTensor&& tensor1) noexcept
+			: size{tensor1.size}, data{std::move(tensor1.data)} {
+			tensor1.size = 0;
+			tensor1.data.release();
+		}
 
 		// 移动赋值函数
-		TinyTensor& operator==(const TinyTensor&& tensor1) noexcept;
+		TinyTensor& operator=(TinyTensor&& tensor1) noexcept {
+			// 自我赋值检测
+			if (& tensor1 == this)
+				return *this;
+
+			// 释放自我
+			size = 0;
+			data.reset();
+
+			// 移动赋值
+			size = tensor1.size;
+			data = tensor1.data;
+
+			tensor1.size = 0;
+			tensor1.data.release();
+
+			return *this;
+		}
 
 		// 析构函数
-		~TinyTensor();
+		~TinyTensor() {
+			size = 0;
+			data.reset();
+        }	
 		
 		// 填充函数
-		void fill(T value);
+		void fill(T value) {
+			T* begin = data.get();
+			for (size_t i = 0; i < size; ++i) {
+            	begin[i] = value;
+        	}		
+        }	
 
 		// 下标访问
-		T operator[](int subscript);
+		T operator[](int subscript) {
+			return *(data + subscript);
+        }
 
 		// 打印函数
-		void print();
+		void print() {
+			std::cout << "size:" << size << '\n';
+			std::cout << "Data:";
+			T* begin = data.get();
+			 for (size_t i = 0; i < size; ++i) {
+            	std::cout << begin[i] << ' ';
+        	}
+			std::cout << '\n';		
+        }
 
 		// 元数据获取底层指针
-		std::unique_ptr <T>* data();
+		T* data_() {
+			return data.get();
+        }
 		
 		// 元数据获取长度
-		int size();
-}
+		size_t size_data() {
+            return size;
+        }
+};
 
 #endif
