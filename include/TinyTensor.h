@@ -7,15 +7,20 @@
 template <typename T>
 class TinyTensor {
 	private:
-		// TinyTensor 长度
-		size_t size{};
 		// TinyTensor 内存管理
 		std::unique_ptr <T[]> data{nullptr};
+		// TinyTensor 长度
+		size_t size{};
+		// TinyTensor 行列
+		size_t row{};
+		size_t col{};
 
 	public:
 		// 构造函数
-		TinyTensor(size_t size=0) : size{size} {
-			if(size > 0) {
+		TinyTensor(size_t row=0, size_t col=0) 
+			: row{row}, col{col} {
+			if(row > 0 && col > 0) {
+				size = row * col;
 				data.reset(new T[size]{});
 			}
         }
@@ -28,9 +33,13 @@ class TinyTensor {
 
 		// 移动构造函数
 		TinyTensor(TinyTensor&& tensor1) noexcept
-			: size{tensor1.size}, data{std::move(tensor1.data)} {
+			: size{tensor1.size}, 
+			  row{tensor1.row},
+			  col{tensor1.col},
+			  data{std::move(tensor1.data)} {
 			tensor1.size = 0;
-			tensor1.data.release();
+			tensor1.row = 0;
+			tensor1.col = 0;
 		}
 
 		// 移动赋值函数
@@ -39,25 +48,17 @@ class TinyTensor {
 			if (& tensor1 == this)
 				return *this;
 
-			// 释放自我
-			size = 0;
-			data.reset();
-
 			// 移动赋值
 			size = tensor1.size;
-			data = tensor1.data;
-
-			tensor1.size = 0;
-			tensor1.data.release();
+			row = tensor1.row;
+			col = tensor1.col;
+			data = std::move(tensor1.data);
 
 			return *this;
 		}
 
 		// 析构函数
-		~TinyTensor() {
-			size = 0;
-			data.reset();
-        }	
+		~TinyTensor() = default;
 		
 		// 填充函数
 		void fill(T value) {
@@ -68,9 +69,14 @@ class TinyTensor {
         }	
 
 		// 下标访问
-		T operator[](int subscript) {
-			return *(data + subscript);
+		T& operator[](int subscript) {
+			return data[subscript];
         }
+
+		// 二维下标访问
+		T& operator()(int row_, int col_) {
+			return data[row_ * col + col_];
+		}
 
 		// 打印函数
 		void print() {
