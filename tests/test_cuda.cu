@@ -1,34 +1,9 @@
 #include <iostream>
+#include <TinyTensor.h>
 #include <cuda_runtime.h>
+#include <kernels.h>
 
-
-__global__ void hello_from_gpu() {
-	int tid = threadIdx.x;
-	printf("Hello World form GPU thread %d! \n", tid);
-}
-
-__global__ void vector_add_kernel(const float* a, const float* b, float* c, int n) {
-	int i = threadIdx.x;
-	if (i < n) {
-		c[i] = a[i] + b[i];
-	}
-}
-
-
-void launch_hello_kernel() {
-	hello_from_gpu<<<1, 10>>>();
-
-	cudaDeviceSynchronize();
-}
-
-
-void launch_vector_add(const float* a, const float* b, float* c, int n) {
-	vector_add_kernel<<<1, 10>>>(a, b, c, n);
-
-	cudaDeviceSynchronize();
-}
-
-
+// CUDA测试
 void test_vector_add() {
 	int n = 5;
 	float h_a[] = {1.0, 2.0, 3.0, 4.0, 5.0};
@@ -47,7 +22,7 @@ void test_vector_add() {
 	cudaMemcpy(d_b, h_b, n * sizeof(float), cudaMemcpyHostToDevice);
 	
 	//启动核函数
-	vector_add_kernel<<<1, n>>>(d_a, d_b, d_c, n);
+	launch_vector_add(d_a, d_b, d_c, n);
 
 	// 从Device拷贝回Host
 	cudaMemcpy(h_c, d_c, n * sizeof(float), cudaMemcpyDeviceToHost);
@@ -63,3 +38,33 @@ void test_vector_add() {
 	cudaFree(d_c);
 }
 
+// TinyTensor CUDA测试
+void test_TinyTensor_cuda(const int& N) {
+    TinyTensor<float> A(1, N), B(1, N), C(1, N);
+
+    A.fill(1.0f);
+    B.fill(2.0f);
+
+    A.allocate_device(); A.copy_to_device();
+    B.allocate_device(); B.copy_to_device();
+    C.allocate_device();
+
+    // 调用 kernel
+    launch_vector_add(A.get_cuda_ptr(), B.get_cuda_ptr(), C.get_cuda_ptr(), N);
+
+    C.copy_to_host();
+
+    std::cout << "Result C[0]: " << C[0] << std::endl;
+}
+
+
+int main() {
+    // std::cout << "\n---Testing CUDA ---" << std::endl;
+    // launch_hello_kernel();
+    // test_vector_add();
+    
+    std::cout << "\n---Testing TinyTensor CUDA ---" << std::endl;
+    test_TinyTensor_cuda(1000000);
+    
+    return 0;
+}

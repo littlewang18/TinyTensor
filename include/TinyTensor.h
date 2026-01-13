@@ -3,19 +3,22 @@
 
 #include <memory>
 #include <iostream>
-#include <cuda_runtime.h>
+
+#include "cuda_bridge.h"
 
 
 template <typename T>
 class TinyTensor {
 	private:
-		// TinyTensor 内存管理
-		std::unique_ptr <T[]> data{nullptr};
-		// TinyTensor 长度
+		
+		// TinyTensor 长度,行列
 		size_t size{};
-		// TinyTensor 行列
 		size_t row{};
 		size_t col{};
+		
+		// TinyTensor 内存管理
+		std::unique_ptr <T[]> data{nullptr};
+		
 		// CUDA 适配
 		T * data_device{nullptr};
 
@@ -74,13 +77,7 @@ class TinyTensor {
 		}
 
 		// 析构函数
-		~TinyTensor() {
-			data.reset();
-			if(data_device) {
-            	cudaFree(data_device); 
-        	}
-		};
-		
+		~TinyTensor();
 		
 		// 下标访问
 		T& operator[](int subscript) {
@@ -127,18 +124,36 @@ class TinyTensor {
         }
 
 		// CUDA 适配
-		void allocate_device() {
-			if(data_device) cudaFree(data_device);
-			cudaMalloc(&data_device, size * sizeof(T));
-		}
+		void allocate_device();
 
-		void copy_to_device() {
-			cudaMemcpy(data_device, data.get(), size * sizeof(T), cudaMemcpyHostToDevice);
-		}
+		void copy_to_device();
 
-		void copy_to_host() {
-			cudaMemcpy(data.get(), data_device, size * sizeof(T), cudaMemcpyDeviceToHost);
-		}
+		void copy_to_host();
+};
+
+
+template <typename T>
+TinyTensor<T>::~TinyTensor() {
+    data.reset();
+    if (data_device) {
+        gpu_free(data_device);
+    }
+}
+
+template <typename T>
+void TinyTensor<T>::allocate_device() {
+    if (data_device) gpu_free(data_device);
+    data_device = static_cast<T*>(gpu_malloc(size * sizeof(T)));
+}
+
+template <typename T>
+void TinyTensor<T>::copy_to_device() {
+    gpu_memcpy_h2d(data_device, data.get(), size * sizeof(T));
+}
+
+template <typename T>
+void TinyTensor<T>::copy_to_host() {
+    gpu_memcpy_d2h(data.get(), data_device, size * sizeof(T));
 };
 
 #endif
