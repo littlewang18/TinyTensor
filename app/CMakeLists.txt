@@ -1,3 +1,3 @@
 add_executable(TinyTensor main.cpp)
 
-target_include_directories(TinyTensor PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(TinyTensor PRIVATE my_core_lib)

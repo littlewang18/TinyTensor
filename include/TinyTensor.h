@@ -3,6 +3,8 @@
 
 #include <memory>
 #include <iostream>
+#include <cuda_runtime.h>
+
 
 template <typename T>
 class TinyTensor {
@@ -14,6 +16,8 @@ class TinyTensor {
 		// TinyTensor 行列
 		size_t row{};
 		size_t col{};
+		// CUDA 适配
+		T * data_device{nullptr};
 
 	public:
 		// 构造函数
@@ -36,10 +40,12 @@ class TinyTensor {
 			: size{tensor1.size}, 
 			  row{tensor1.row},
 			  col{tensor1.col},
-			  data{std::move(tensor1.data)} {
+			  data{std::move(tensor1.data)},
+			  data_device{tensor1.data_device} {
 			tensor1.size = 0;
 			tensor1.row = 0;
 			tensor1.col = 0;
+			tensor1.data_device = nullptr;
 		}
 
 		// 移动赋值函数
@@ -48,26 +54,34 @@ class TinyTensor {
 			if (& tensor1 == this)
 				return *this;
 
+			// 释放自我
+			if(data_device) cudaFree(data_device);
+
 			// 移动赋值
 			size = tensor1.size;
 			row = tensor1.row;
 			col = tensor1.col;
 			data = std::move(tensor1.data);
+			data_device = tensor1.data_device;
+
+			//源对象置空
+			tensor1.size = 0;
+    		tensor1.row = 0;
+    		tensor1.col = 0;
+    		tensor1.data_device = nullptr;
 
 			return *this;
 		}
 
 		// 析构函数
-		~TinyTensor() = default;
+		~TinyTensor() {
+			data.reset();
+			if(data_device) {
+            	cudaFree(data_device); 
+        	}
+		};
 		
-		// 填充函数
-		void fill(T value) {
-			T* begin = data.get();
-			for (size_t i = 0; i < size; ++i) {
-            	begin[i] = value;
-        	}		
-        }	
-
+		
 		// 下标访问
 		T& operator[](int subscript) {
 			return data[subscript];
@@ -77,6 +91,14 @@ class TinyTensor {
 		T& operator()(int row_, int col_) {
 			return data[row_ * col + col_];
 		}
+
+		// 填充函数
+		void fill(T value) {
+			T* begin = data.get();
+			for (size_t i = 0; i < size; ++i) {
+            	begin[i] = value;
+        	}		
+        }	
 
 		// 打印函数
 		void print() {
@@ -90,14 +112,33 @@ class TinyTensor {
         }
 
 		// 元数据获取底层指针
-		T* data_() {
+		T* get_ptr() {
 			return data.get();
         }
+
+		// 获取底层CUDA指针
+		T* get_cuda_ptr() {
+			return data_device;
+		}
 		
 		// 元数据获取长度
 		size_t size_data() {
             return size;
         }
+
+		// CUDA 适配
+		void allocate_device() {
+			if(data_device) cudaFree(data_device);
+			cudaMalloc(&data_device, size * sizeof(T));
+		}
+
+		void copy_to_device() {
+			cudaMemcpy(data_device, data.get(), size * sizeof(T), cudaMemcpyHostToDevice);
+		}
+
+		void copy_to_host() {
+			cudaMemcpy(data.get(), data_device, size * sizeof(T), cudaMemcpyDeviceToHost);
+		}
 };
 
 #endif

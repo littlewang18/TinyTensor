@@ -1,8 +1,12 @@
 #include <TinyTensor.h>
 #include <iostream>
-#include <chrono> // 用于高精度计时
+#include <chrono>
 
-// 简单的矩阵乘法函数：C = A * B
+extern void launch_hello_kernel();
+extern void launch_vector_add(const float* a, const float* b, float* c, int n);
+extern void test_vector_add();
+
+//矩阵乘法函数：C = A * B
 #pragma omp parallel for
 template <typename T>
 void matmul(TinyTensor<T>& A, TinyTensor<T>& B, TinyTensor<T>& C, int N) {
@@ -16,8 +20,7 @@ void matmul(TinyTensor<T>& A, TinyTensor<T>& B, TinyTensor<T>& C, int N) {
     }
 }
 
-int main() {
-    // --- 1. 正确性验证 (3x3 矩阵) ---
+void test_TinyTensor() {
     std::cout << "--- Correctness Test (3x3) ---" << std::endl;
     int N_small = 3;
     TinyTensor<float> A_s(N_small, N_small), B_s(N_small, N_small), C_s(N_small, N_small);
@@ -44,6 +47,43 @@ int main() {
 
     std::cout << "Matrix Multiplication (Size " << N << "x" << N << ") took: " 
               << diff.count() << " seconds" << std::endl;
+}
 
+void test_TinyTensor_cuda() {
+    int N = 100;
+    TinyTensor<float> A(1, N), B(1, N), C(1, N);
+
+    A.fill(1.0f);
+    B.fill(2.0f);
+
+    A.allocate_device(); A.copy_to_device();
+    B.allocate_device(); B.copy_to_device();
+    C.allocate_device();
+
+    int threadsPerBlock = 256;
+    int blocksPerGrid = (N + threadsPerBlock - 1) / threadsPerBlock;
+    
+    // 调用 kernel
+    launch_vector_add(A.get_cuda_ptr(), B.get_cuda_ptr(), C.get_cuda_ptr(), N);
+
+    C.copy_to_host();
+
+    // 验证：C[0] 应该是 3.0
+    std::cout << "Result C[0]: " << C[0] << std::endl;
+}
+
+int main() {
+    
+    // std::cout << "--- Correctness TinyTensor ---" << std::endl;
+    // test_TinyTensor();
+
+
+    // std::cout << "\n---Testing CUDA ---" << std::endl;
+    // launch_hello_kernel();
+    // test_vector_add();
+    
+    std::cout << "\n---Testing TinyTensor CUDA ---" << std::endl;
+    test_TinyTensor_cuda();
+    
     return 0;
 }
