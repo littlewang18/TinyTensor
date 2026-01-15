@@ -2,7 +2,7 @@
 #define TOOLBOX
 
 template <typename T>
-void matmul(TinyTensor<T>& A, TinyTensor<T>& B, TinyTensor<T>& C, int N) {
+void matmul(const TinyTensor<T>& A, const TinyTensor<T>& B, TinyTensor<T>& C, int N) {
     #pragma omp parallel for
     for (int i = 0; i < N; ++i) {
         for (int k = 0; k < N; ++k) {

@@ -5,12 +5,12 @@
 #include <iostream>
 
 #include "cuda_bridge.h"
+#include "kernels.h"
 
 
 template <typename T>
 class TinyTensor {
 	private:
-		
 		// TinyTensor 长度,行列
 		size_t size{};
 		size_t row{};
@@ -77,16 +77,65 @@ class TinyTensor {
 		}
 
 		// 析构函数
-		~TinyTensor();
+		~TinyTensor() {
+			data.reset();
+    		if (data_device) {
+        		gpu_free(data_device);
+    		}
+		}
 		
 		// 下标访问
-		T& operator[](int subscript) {
+		T& operator[](int subscript) const {
 			return data[subscript];
         }
 
 		// 二维下标访问
-		T& operator()(int row_, int col_) {
+		T& operator()(int row_, int col_) const {
 			return data[row_ * col + col_];
+		}
+		
+		// 算子+重载
+		TinyTensor<T> operator+(const TinyTensor<T> & other) const {
+			if (this->row != other.row || this->col != other.col) {
+				throw std::runtime_error("维度不一致");
+			} 
+			TinyTensor<T> result(this->row, this->col);
+
+			if(this->data_device && other.data_device) {
+				result.allocate_device();
+				launch_matrix_add(this->data_device, other.data_device, result.data_device, this->row, this->col);
+			}else {
+				for(size_t i = 0; i < size; ++i) {
+					result[i] = this->data[i] + other.data[i];
+				}
+			}
+			return result;
+		}
+		
+		// 算子 * 重载
+		TinyTensor<T> operator*(const TinyTensor<T> & other) const {
+			if (this->col != other.row) {
+				throw std::runtime_error("维度不一致");
+			}
+			
+			TinyTensor<T> result(this->row, other.col);
+
+			if(this->data_device && other.data_device) {
+				result.allocate_device();
+				launch_matrix_mul_tiled(this->data_device, other.data_device, result.data_device, 
+									this->row, this->col, other.col);
+			}else {
+				#pragma omp parallel for
+				for (size_t i = 0; i < this->row; ++i) {
+                	for (size_t k = 0; k < this->col; ++k) {
+                    	T temp = (*this)(i, k);
+                    	for (size_t j = 0; j < other.col; ++j) {
+                        	result(i, j) += temp * other(k, j);
+                    	}
+                	}
+            	}
+			}
+			return result;
 		}
 
 		// 填充函数
@@ -95,7 +144,7 @@ class TinyTensor {
 			for (size_t i = 0; i < size; ++i) {
             	begin[i] = value;
         	}		
-        }	
+        }
 
 		// 打印函数
 		void print() {
@@ -124,36 +173,18 @@ class TinyTensor {
         }
 
 		// CUDA 适配
-		void allocate_device();
+		void allocate_device(){
+			if (data_device) gpu_free(data_device);
+    		data_device = static_cast<T*>(gpu_malloc(size * sizeof(T)));
+		}
 
-		void copy_to_device();
+		void copy_to_device(){
+			gpu_memcpy_h2d(data_device, data.get(), size * sizeof(T));
+		}
 
-		void copy_to_host();
-};
-
-
-template <typename T>
-TinyTensor<T>::~TinyTensor() {
-    data.reset();
-    if (data_device) {
-        gpu_free(data_device);
-    }
-}
-
-template <typename T>
-void TinyTensor<T>::allocate_device() {
-    if (data_device) gpu_free(data_device);
-    data_device = static_cast<T*>(gpu_malloc(size * sizeof(T)));
-}
-
-template <typename T>
-void TinyTensor<T>::copy_to_device() {
-    gpu_memcpy_h2d(data_device, data.get(), size * sizeof(T));
-}
-
-template <typename T>
-void TinyTensor<T>::copy_to_host() {
-    gpu_memcpy_d2h(data.get(), data_device, size * sizeof(T));
+		void copy_to_host(){
+			gpu_memcpy_d2h(data.get(), data_device, size * sizeof(T));
+		}
 };
 
 #endif
