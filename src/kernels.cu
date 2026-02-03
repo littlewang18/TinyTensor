@@ -88,6 +88,10 @@ __global__ void scale_kernel(float* data, float alpha, int n) {
 	}
 }
 
+__global__ void transpose_kernel(float* data) {
+	
+}
+
 
 void launch_hello_kernel() {
 	hello_from_gpu<<<1, 10>>>();

@@ -12,7 +12,7 @@ void test_TinyTensor() {
     A_s.fill(1.0f); // 全 1 矩阵
     B_s.fill(2.0f); // 全 2 矩阵
     
-    matmul(A_s, B_s, C_s, N_small);
+    matmul(A_s.get_ptr(), B_s.get_ptr(), C_s.get_ptr(), N_small, N_small, N_small);
     C_s.print(); // 结果应该全是 6.0 (1*2 + 1*2 + 1*2)
 
     // --- 2. 性能压力测试 (1024x1024 矩阵) ---
@@ -24,7 +24,7 @@ void test_TinyTensor() {
 
     auto start = std::chrono::high_resolution_clock::now();
     
-    matmul(A, B, C, N);
+    matmul(A.get_ptr(), B.get_ptr(), C.get_ptr(), N_small, N_small, N_small);;
     
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> diff = end - start;

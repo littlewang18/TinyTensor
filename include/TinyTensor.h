@@ -21,6 +21,9 @@ class TinyTensor {
 		// TinyTensor 内存管理
 		std::unique_ptr <T[]> data{nullptr};  	//CPU
 		T * data_gpu{nullptr};				  	//GPU
+
+		// TinyTensor Grad 梯度
+		std::unique_ptr <T[]> grad{nullptr}; 
 		
 		// TinyTensor 状态管理
 		DeviceStatus status{DeviceStatus::HostOnly};
@@ -81,7 +84,7 @@ class TinyTensor {
 		}
 		
 		// 获取长度
-		size_t size_data() { return size; }
+		size_t get_size() { return size; }
 		// 获取底层指针
 		T* get_ptr() { return data.get(); }
 		// 获取底层CUDA指针
@@ -93,22 +96,21 @@ class TinyTensor {
 		// 二维下标访问
 		T& operator()(size_t row_, size_t col_) const { return data[row_ * col + col_]; }
 		
-		
 		// 算子 + 重载
 		TinyTensor<T> operator+(const TinyTensor<T> & other) const {
-			if (this->row != other.row || this->col != other.col) {
+			if (row != other.row || col != other.col) {
 				throw std::runtime_error("维度不一致");
 			}
 			
-			TinyTensor<T> result(this->row, this->col);
+			TinyTensor<T> result(row, col);
 
 			if(status == DeviceStatus::DeviceOnly || status == DeviceStatus::Synced) {
 				result.allocate_device();
-				launch_matrix_add(this->data_gpu, other.data_gpu, result.data_gpu,
-					 this->row, this->col);
+				launch_matrix_add(data_gpu, other.data_gpu, result.data_gpu,
+					 row, col);
 				result.status = DeviceStatus::DeviceOnly;	
 			} else {
-				add(*this, other, result, this->row, this->col);
+				add(data.get(), other.data.get(), result.data.get(), size);
 			}
 
 			return result;
@@ -128,7 +130,7 @@ class TinyTensor {
 									row, col, other.col);
 				result.status = DeviceStatus::DeviceOnly;
 			} else {
-				matmul(*this, other, result, row, col, other.col);
+				matmul(data.get(), other.data.get(), result.data.get(), row, col, other.col);
 			}
 			return result;
 		}
@@ -138,11 +140,10 @@ class TinyTensor {
 			if(status == DeviceStatus::DeviceOnly || status == DeviceStatus::Synced) {
 				launch_scale(data_gpu, alpha, size);
 			} else {
-				add(*this, alpha, size)
+				scale(data.get(), alpha, size);
         	}
 			return *this;
 		}
-
 
 		// 填充函数
 		void fill(T value) {
@@ -162,7 +163,6 @@ class TinyTensor {
         	}
 			std::cout << '\n';		
         }
-
 
 		// Device 状态
 		TinyTensor& to(const std::string& device) {
@@ -219,6 +219,8 @@ class TinyTensor {
             	}
 			}
 		}
+		
+
 
 };
 

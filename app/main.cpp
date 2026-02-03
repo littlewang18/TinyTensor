@@ -1,13 +1,22 @@
 #include <iostream>
-
+#include "Linear.h"
 
 int main() {
-    const int constant = 26;
-    const int* const_p = &constant;
-    int* modifier = const_cast<int*>(const_p);
-    *modifier = 3;
-    std::cout<< "constant:  "<<constant<<"  adderss:  "<< &constant <<std::endl;
-    std::cout<<"*modifier:  "<<*modifier<<"  adderss:  " << modifier<<std::endl;
+    Linear<float> fc1(784, 128);
+    Linear<float> fc2(128, 10);
+
+    auto x = TinyTensor<float>(4, 784); 
+    x.fill(0.5f);
+    
+    x.to("gpu");
+    fc1.to("gpu");
+    fc2.to("gpu");
+    
+    auto h1 = fc1.forward(x);
+    auto out = fc2.forward(h1);
+
+    out.to("cpu");
+    out.print();
 
     return 0;
 }

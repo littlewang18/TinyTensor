@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(TinyTensor VERSION 1.2  LANGUAGES CXX CUDA)
+project(TinyTensor VERSION 1.3  LANGUAGES CXX CUDA)
 
 # 全局设置
 set(CMAKE_CXX_STANDARD 17)

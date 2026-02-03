@@ -92,7 +92,7 @@ void test_matrix_mul_CPU() {
 
     // CPU OMP版本
     auto start = std::chrono::high_resolution_clock::now();
-    matmul(A, B, C, rows);
+    matmul(A.get_ptr(), B.get_ptr(), C.get_ptr(), rows, cols, cols);
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> diff = end - start;
     std::cout << "CPU版本："<< diff.count() << " seconds" << std::endl;
