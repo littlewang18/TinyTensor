@@ -45,42 +45,52 @@ __global__ void matrix_mul_tiled_kernel(const float* A, const float* B, float* C
 	__shared__ float tile_A[TILE_SIZE][TILE_SIZE];
 	__shared__ float tile_B[TILE_SIZE][TILE_SIZE];
 
-	int bx = blockIdx.x; int by = blockIdx.y;
-	int tx = threadIdx.x; int ty = threadIdx.y;
-
-	int row = by * TILE_SIZE + ty;
-	int col = bx * TILE_SIZE + tx;
+	int row = blockIdx.y * TILE_SIZE + threadIdx.y;
+	int col = blockIdx.x * TILE_SIZE + threadIdx.x;
 
 	float sum = 0.0f;
 
 	for (int m = 0; m < (cols1 + TILE_SIZE - 1) / TILE_SIZE; ++m) {
-		if(row < rows1 && m * TILE_SIZE + tx < cols1)
-			tile_A[ty][tx] = A[row * cols1 + m * TILE_SIZE +tx];
+		if(row < rows1 && m * TILE_SIZE + threadIdx.x < cols1)
+			tile_A[threadIdx.y][threadIdx.x] = A[row * cols1 + m * TILE_SIZE +threadIdx.x];
 		else
-			tile_A[ty][tx] = 0.0f;
+			tile_A[threadIdx.y][threadIdx.x] = 0.0f;
 		
-		if(col < cols2 && m * TILE_SIZE + ty < cols1)
-			tile_B[ty][tx] = B[(m * TILE_SIZE + ty) * cols2 + col];
+		if(col < cols2 && m * TILE_SIZE + threadIdx.y < cols1)
+			tile_B[threadIdx.y][threadIdx.x] = B[(m * TILE_SIZE + threadIdx.y) * cols2 + col];
 		else
-			tile_B[ty][tx] = 0.0f;
+			tile_B[threadIdx.y][threadIdx.x] = 0.0f;
 
 		__syncthreads();
 
 		for(int k = 0; k < TILE_SIZE; ++k) {
-			sum += tile_A[ty][k] * tile_B[k][tx];
+			sum += tile_A[threadIdx.y][k] * tile_B[k][threadIdx.x];
 		}
 		__syncthreads();
 	}
 
-	if(row < rows1 && col < cols1) {
-		C[row * cols1 + col] = sum;
+	if(row < rows1 && col < cols2) {
+		C[row * cols2 + col] = sum;
+	}
+}
+
+__global__ void relu_kernel(float* data, int n) {
+	int i = blockIdx.x * blockDim.x + threadIdx.x;
+	if(i < n){
+		data[i] = data[i] > 0 ? data[i] : 0;
+	}
+}
+
+__global__ void scale_kernel(float* data, float alpha, int n) {
+	int i = blockIdx.x * blockDim.x + threadIdx.x;
+	if(i < n){
+		data[i] = data[i] * alpha;
 	}
 }
 
 
 void launch_hello_kernel() {
 	hello_from_gpu<<<1, 10>>>();
-
 	cudaDeviceSynchronize();
 }
 
@@ -118,8 +128,23 @@ void launch_matrix_mul_native(const float* A, const float* B, float* C, int rows
 
 void launch_matrix_mul_tiled(const float* A, const float* B, float* C, int rows1, int cols1, int cols2) {
 	dim3 threadsPerBlock(16, 16);
-	dim3 blocksPerGrid((cols1 + 15) / 16, (rows1 + 15) / 16);
+	dim3 blocksPerGrid((cols2 + 15) / 16, (rows1 + 15) / 16);
 
 	matrix_mul_tiled_kernel<<<blocksPerGrid, threadsPerBlock>>>(A, B, C, rows1, cols1, cols2);
-	cudaDeviceSynchronize();
+}
+
+
+void launch_relu(float* data_device, int n) {
+	int threadsPerBlock = 256;
+	int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;
+
+	relu_kernel<<<blocksPerGrid, threadsPerBlock>>>(data_device, n);
+}
+
+
+void launch_scale(float* data_device, float alpha, int n) {
+	int threadsPerBlock = 256;
+	int blocksPerGrid = (n + threadsPerBlock - 1) / threadsPerBlock;
+
+	scale_kernel<<<blocksPerGrid, threadsPerBlock>>>(data_device, alpha, n);
 }

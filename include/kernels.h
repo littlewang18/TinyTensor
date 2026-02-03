@@ -12,4 +12,8 @@ void launch_matrix_mul_native(const float* A, const float* B, float* C, int rows
 
 void launch_matrix_mul_tiled(const float* A, const float* B, float* C, int rows1, int cols1, int cols2);
 
+void launch_relu(float* data_device, int n);
+
+void launch_scale(float* data_device, float alpha, int n);
+
 #endif

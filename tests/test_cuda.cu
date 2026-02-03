@@ -153,6 +153,19 @@ void test_matrix_mul_GPU_tiled() {
     std::cout << "Result: " << C(500, 500) << std::endl;
 }
 
+// Relu测试
+void test_elementwise() {
+    TinyTensor<float> A(10, 10);
+    A.fill(-1.0f); // 全是负数
+    A.to("cuda");
+
+    A *= 0.5f;  // 整个矩阵每个元素都减半
+    A.relu();   // 执行 GPU ReLU
+
+    A.to("cpu");
+    std::cout << "ReLU 结果: " << A(5, 5) << std::endl;
+}
+
 
 int main() {
     // std::cout << "\n---Testing CUDA ---" << std::endl;
@@ -160,11 +173,13 @@ int main() {
     // test_vector_add();
     
     std::cout << "\n---Testing TinyTensor CUDA ---" << std::endl;
-    test_TinyTensor_cuda(1024);
+    // test_TinyTensor_cuda(1024);
 	// test_matrix_add_2d();  
     // test_matrix_mul_CPU();
     // test_matrix_mul_GPU_native();
     // test_matrix_mul_GPU_tiled();
+
+    test_elementwise();
 
     return 0;
 }
