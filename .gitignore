@@ -39,3 +39,11 @@
 
 # debug information files
 *.dwo
+
+
+# build files
+/build
+
+
+# vscode config
+/.vscode
