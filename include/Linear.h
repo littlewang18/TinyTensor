@@ -15,7 +15,7 @@ class Linear {
 
     public:
         Linear(int num_in, int num_out): 
-            weight(num_in, num_out), bias(4, num_out) {
+            weight(num_in, num_out), bias(1, num_out) {
             // Xavier 初始化
             double var_weight = std::sqrt(2.0 / (num_in + num_out));
 
@@ -27,20 +27,28 @@ class Linear {
                 weight[i] = distribution(generator);
             }
             bias.fill(0.0f);
+            weight.set_grad(1);
+            bias.set_grad(1);
         }
         
         // 前向传播
         TinyTensor<T> forward(const TinyTensor<T>& input) {
+            // TODO 产生了两个临时变量，可以优化
             auto output = (input * weight) + bias;
             output.relu();
             return output;
         }
-
-        // 均方损失
         
-
-
-        
+        // 后向传播
+        void backward(TinyTensor<T>& input, TinyTensor<T>& output) {
+            weight.set_grad(1);
+            bias.set_grad(1);
+            // TODO 临时变量产生flag_grad为false，可优化
+            weight.get_grad() = input.trans() * output.get_grad();
+            bias.get_grad() = output.get_grad().sum(0);
+            input.get_grad() = output.get_grad() * weight.trans();
+        }
+  
         // CUDA适配
         Linear& to(const std::string& device) {
             if(device =="cuda" || device =="gpu") {
@@ -54,6 +62,11 @@ class Linear {
 			}
 			return *this;
 		}
+
+        // 获取参数
+        std::vector<TinyTensor<T>*> get_parameters() {
+            return {&weight, &bias};
+        }
 };
 
 #endif

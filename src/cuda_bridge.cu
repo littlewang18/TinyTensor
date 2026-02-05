@@ -19,3 +19,7 @@ void gpu_memcpy_h2d(void* dest, const void* src, size_t size) {
 void gpu_memcpy_d2h(void* dest, const void* src, size_t size) {
     cudaMemcpy(dest, src, size, cudaMemcpyDeviceToHost);
 }
+
+void gpu_memset_zero(void* ptr, size_t size) {
+    cudaMemset(ptr, 0, size);
+}
